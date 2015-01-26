@@ -25,6 +25,22 @@ local isActive = nil
 local backup = nil
 local isBackup = nil
  
+local isCooled = reactor.isActivelyCooled()
+ 
+if isCooled then
+ 
+stats[1] = {"Casing Temp:", nil, " C"}
+stats[2] = {"Core Temp: ", nil, " C"}
+stats[3] = {"Fuel Reactivity: ", nil, "%"}
+stats[4] = {"Fuel Amount: ", nil, "%"}
+stats[5] = {"Coolant Amount: ", nil, "%"}
+stats[6] = {"Steam Amount: ", nil, "%"}
+stats[7] = {"Production Rate: ", nil, " mB/t"}
+stats[8] = {"Rod Levels: ", nil, "%"}
+stats[9] = {"Reactor: ", nil}
+ 
+else
+ 
 stats[1] = {"Casing Temp: ", nil, " C"}
 stats[2] = {"Core Temp: ", nil, " C"}
 stats[3] = {"Fuel Reactivity: ", nil, "%"}
@@ -35,13 +51,15 @@ stats[7] = {"Rod Levels: ", nil, "%"}
 stats[8] = {"Reactor: ", nil}
 stats[9] = {"Backup: ", nil}
  
+end
+ 
 if modem then
   rednet.open(modemSide)
   rednet.host("reactorStats", "reactor")
 end
  
 while true do
-  active = not rs.getInput("top")
+  active = not rs.testBundledInput("bottom", colors.green)
   reactor.setActive(active)
   if active then
     isActive = "Active"
@@ -49,15 +67,20 @@ while true do
     isActive = "Not Active"
   end
  
-  backup = (reactor.getFuelAmount() == 0)
-  rs.setOutput("bottom", backup)
-  if backup then
-    isBackup = "Active"
+  if isCooled then
+    rodLevel = (reactor.getHotFluidAmount()*100/reactor.getHotFluidAmountMax())
   else
-    isBackup = "Not Active"
-  end
+    backup = (reactor.getFuelAmount() == 0)
+    if backup then
+      isBackup = "Active"
+      rs.setBundledOutput("bottom", colors.red)
+    else
+      isBackup = "Not Active"
+      rs.setBundledOutput("bottom", 0)
+    end
  
-  rodLevel = (reactor.getEnergyStored()/100000)
+    rodLevel = (reactor.getEnergyStored()/100000)
+  end
  
   reactor.setAllControlRodLevels(rodLevel)
    
@@ -65,11 +88,20 @@ while true do
   stats[2][2] = math.floor(0.5 + reactor.getFuelTemperature())
   stats[3][2] = math.floor(0.5 + reactor.getFuelReactivity())
   stats[4][2] = math.floor(0.5 + (100 * reactor.getFuelAmount() / reactor.getFuelAmountMax()))
-  stats[5][2] = math.floor(0.5 + reactor.getEnergyStored())
-  stats[6][2] = math.floor(0.5 + reactor.getEnergyProducedLastTick())
-  stats[7][2] = math.floor(0.5 + rodLevel)
-  stats[8][2] = isActive
-  stats[9][2] = isBackup
+ 
+  if isCooled then
+    stats[5][2] = math.floor(0.5 + (100 * reactor.getCoolantAmount() / reactor.getCoolantAmountMax()))
+    stats[6][2] = math.floor(0.5 + (100 * reactor.getHotFluidAmount() / reactor.getHotFluidAmountMax()))
+    stats[7][2] = math.floor(0.5 + reactor.getHotFluidProducedLastTick())
+    stats[8][2] = math.floor(0.5 + rodLevel)
+    stats[9][2] = isActive
+  else
+    stats[5][2] = math.floor(0.5 + reactor.getEnergyStored())
+    stats[6][2] = math.floor(0.5 + reactor.getEnergyProducedLastTick())
+    stats[7][2] = math.floor(0.5 + rodLevel)
+    stats[8][2] = isActive
+    stats[9][2] = isBackup  
+  end
  
   if modem then
     rednet.broadcast(textutils.serialize(stats), "reactorStats")
