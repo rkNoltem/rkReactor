@@ -24,7 +24,7 @@ local active = nil
 local isActive = nil
 local backup = nil
 local isBackup = nil
- 
+
 local isCooled = reactor.isActivelyCooled()
  
 if isCooled then
